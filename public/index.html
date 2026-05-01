@@ -366,8 +366,23 @@
       <h1>Loan Repayment <span>Planner</span></h1>
       <p>Minimize interest · Optimize prepayments · Plan disbursements</p>
     </div>
-    <div class="loan-ref">
-      Sanctioned <span id="headerSanctioned">₹92,95,377</span> &nbsp;·&nbsp; EMI <span>₹73,606</span> &nbsp;·&nbsp; Rate <span>7.35% floating</span> &nbsp;·&nbsp; Maturity <span>2041</span>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div class="loan-ref">
+        Sanctioned <span id="headerSanctioned">₹92,95,377</span> &nbsp;·&nbsp; EMI <span>₹73,606</span> &nbsp;·&nbsp; Rate <span>7.35% floating</span> &nbsp;·&nbsp; Maturity <span>2041</span>
+      </div>
+      <div id="userInfo" style="display:flex; align-items:center; gap:8px;">
+        <img id="userPhoto" src="" alt="" width="28" height="28"
+          style="border-radius:50%; border:1px solid rgba(255,255,255,0.13); display:none;">
+        <span id="userName" style="font-family:'DM Mono',monospace; font-size:11px; color:#8888a0;"></span>
+        <a href="/logout"
+          style="font-family:'DM Mono',monospace; font-size:11px; color:#55556a; text-decoration:none;
+                 background:#18181f; border:1px solid rgba(255,255,255,0.07); border-radius:6px;
+                 padding:4px 10px; transition:color 0.15s, border-color 0.15s;"
+          onmouseover="this.style.color='#e86a6a';this.style.borderColor='rgba(232,106,106,0.3)'"
+          onmouseout="this.style.color='#55556a';this.style.borderColor='rgba(255,255,255,0.07)'">
+          sign out
+        </a>
+      </div>
     </div>
   </header>
 
@@ -835,6 +850,15 @@ function exportCSV() {
 
 renderTranches();
 render();
+
+fetch('/api/me').then(r => r.json()).then(u => {
+  if (u.name) document.getElementById('userName').textContent = u.name;
+  if (u.photo) {
+    const img = document.getElementById('userPhoto');
+    img.src = u.photo;
+    img.style.display = 'block';
+  }
+}).catch(() => {});
 </script>
 </body>
 </html>
