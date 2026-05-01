@@ -126,6 +126,8 @@
   <h1>Loan Repayment <span>Planner</span></h1>
   <p class="subtitle">Sign in to access your repayment dashboard</p>
 
+  <p id="errMsg" style="display:none; color:#e86a6a; font-family:'DM Mono',monospace; font-size:12px; margin-bottom:16px; background:rgba(232,106,106,0.08); border:1px solid rgba(232,106,106,0.2); border-radius:8px; padding:10px 14px;"></p>
+
   <a href="/auth/google" class="btn-google">
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
@@ -138,5 +140,13 @@
 
   <p class="footer">Access is restricted to authorized users only.<br>Your session will expire after 24 hours.</p>
 </div>
+<script>
+  const p = new URLSearchParams(location.search);
+  if (p.get('error') === 'auth') {
+    const el = document.getElementById('errMsg');
+    el.textContent = 'Sign-in failed. Check that GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and CALLBACK_URL are set correctly.';
+    el.style.display = 'block';
+  }
+</script>
 </body>
 </html>

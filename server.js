@@ -8,17 +8,32 @@ const path       = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Cloud Run (and any reverse proxy) forwards requests via HTTP internally.
+// Without this, Express doesn't trust X-Forwarded-* headers, session cookies
+// are flagged insecure, and get dropped — so every request looks unauthenticated.
+app.set('trust proxy', 1);
+
 // ── SESSION ───────────────────────────────────────────────────────────────────
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'change-me-in-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 },
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000,
+    secure: isProduction,   // send cookie only over HTTPS in prod / Cloud Run
+    sameSite: 'lax',
+  },
 }));
 
 // ── PASSPORT ──────────────────────────────────────────────────────────────────
 app.use(passport.initialize());
 app.use(passport.session());
+
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.warn('\n  ⚠  GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set — auth will fail\n');
+}
 
 passport.use(new GoogleStrategy(
   {
@@ -56,7 +71,7 @@ app.get('/auth/google',
 );
 
 app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
+  passport.authenticate('google', { failureRedirect: '/login?error=auth' }),
   (_req, res) => res.redirect('/')
 );
 
@@ -76,5 +91,7 @@ app.listen(PORT, () => {
   console.log(`\n  Loan Repayment Planner`);
   console.log(`  ─────────────────────────────`);
   console.log(`  Running at http://localhost:${PORT}`);
+  console.log(`  Mode: ${isProduction ? 'production' : 'development'}`);
+  console.log(`  Callback URL: ${process.env.CALLBACK_URL || `http://localhost:${PORT}/auth/google/callback`}`);
   console.log(`  Press Ctrl+C to stop\n`);
 });
