@@ -85,7 +85,6 @@
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    overflow: hidden;
   }
   .panel-header {
     padding: 14px 20px;
@@ -110,8 +109,33 @@
     text-transform: uppercase;
     color: var(--text3);
     margin-bottom: 10px;
-    display: block;
+    display: flex;
+    align-items: center;
   }
+
+  .info-wrap { position: relative; display: inline-flex; margin-left: 8px; }
+  .info-icon { 
+    display: inline-flex; align-items: center; justify-content: center; 
+    width: 14px; height: 14px; border-radius: 50%; 
+    background: var(--border2); color: var(--text2); 
+    font-size: 10px; font-style: italic; font-weight: bold; font-family: 'Syne', sans-serif;
+    cursor: help; transition: all 0.15s;
+  }
+  .info-icon:hover { background: var(--gold); color: var(--bg); }
+  .info-tooltip {
+    position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+    background: var(--bg3); border: 1px solid var(--border); padding: 8px 12px;
+    border-radius: 6px; font-size: 11px; color: var(--text2);
+    width: max-content; max-width: 200px; white-space: normal; text-transform: none; letter-spacing: normal;
+    pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; line-height: 1.4;
+  }
+  /* Tooltip arrow */
+  .info-tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border-width: 5px; border-style: solid; border-color: var(--border) transparent transparent transparent;
+  }
+  .info-wrap:hover .info-tooltip { opacity: 1; }
 
   .tranche-card {
     background: var(--bg3);
@@ -368,7 +392,7 @@
     </div>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <div class="loan-ref">
-        Sanctioned <span id="headerSanctioned">—</span> &nbsp;·&nbsp; Disbursed <span id="headerDisbursed">—</span> &nbsp;·&nbsp; EMI <span>₹73,606</span>
+        Sanctioned <span id="headerSanctioned">—</span> &nbsp;·&nbsp; Disbursed <span id="headerDisbursed">—</span> &nbsp;·&nbsp; EMI <span id="headerEMI">—</span>
       </div>
       <div id="userInfo" style="display:flex; align-items:center; gap:8px; min-width:150px;">
         <img id="userPhoto" src="" alt="" width="28" height="28"
@@ -397,23 +421,38 @@
         </div>
         <div class="panel-body">
           <div class="ctrl-group">
-            <span class="ctrl-label">Sanctioned Amount (₹)</span>
-            <input type="number" id="sanctionedAmt" value="0" min="0" step="10000" style="width:100%">
+            <label class="ctrl-label">
+              Sanctioned Amount (₹)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Total loan amount approved by the bank.</div></div>
+            </label>
+            <input type="number" id="sanctionedAmt" value="10000000" min="0" step="10000" style="width:100%">
           </div>
           <div class="ctrl-group">
-            <span class="ctrl-label">Disbursed So Far (₹)</span>
-            <input type="number" id="disbursedSoFar" value="0" min="0" step="10000" style="width:100%">
+            <label class="ctrl-label">
+              Disbursed So Far (₹)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Amount released to you or the builder so far.</div></div>
+            </label>
+            <input type="number" id="disbursedSoFar" value="8000000" min="0" step="10000" style="width:100%">
           </div>
           <div class="ctrl-group">
-            <span class="ctrl-label">Loan Period (months)</span>
-            <input type="number" id="loanPeriod" value="0" min="0" step="1" style="width:100%">
+            <label class="ctrl-label">
+              Loan Period (months)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Total tenure of the loan in months (e.g., 20 years = 240 months).</div></div>
+            </label>
+            <input type="number" id="loanPeriod" value="240" min="0" step="1" style="width:100%">
           </div>
           <div class="ctrl-group">
-            <span class="ctrl-label">Principal Recovered (₹)</span>
+            <label class="ctrl-label">
+              Principal Recovered (₹)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Portion of the disbursed amount you have already paid back.</div></div>
+            </label>
             <input type="number" id="principalPaid" value="0" min="0" step="1000" style="width:100%">
           </div>
           <div class="ctrl-group">
-            <span class="ctrl-label">Interest Paid (₹)</span>
+            <label class="ctrl-label">
+              Interest Paid (₹)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Total interest amount you have paid to date.</div></div>
+            </label>
             <input type="number" id="interestPaid" value="0" min="0" step="1000" style="width:100%">
           </div>
           <div class="ctrl-group" style="margin-bottom:0;">
@@ -443,34 +482,33 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-icon green">⚡</div>
-          <span class="panel-title">Prepayment Settings</span>
+          <span class="panel-title">Income & Prepayment</span>
         </div>
         <div class="panel-body">
           <div class="ctrl-group">
-            <label class="ctrl-label">Lumpsum Amount</label>
-            <select id="lumpsumAmt">
-              <option value="0">None — EMI only</option>
-              <option value="500000">₹5 Lakhs</option>
-              <option value="750000">₹7.5 Lakhs</option>
-              <option value="1000000" selected>₹10 Lakhs</option>
-            </select>
+            <label class="ctrl-label">
+              Monthly Salary (₹)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Your total monthly take-home income.</div></div>
+            </label>
+            <input type="number" id="monthlySalary" value="200000" min="0" step="5000" style="width:100%;">
           </div>
           <div class="ctrl-group">
-            <label class="ctrl-label">First lumpsum at month</label>
-            <select id="startMonth">
-              <option value="1">Month 1</option>
-              <option value="6" selected>Month 6</option>
-              <option value="12">Month 12</option>
-              <option value="18">Month 18</option>
-            </select>
+            <label class="ctrl-label">
+              Monthly Expenses (₹)
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Your total monthly living expenses and other EMIs.</div></div>
+            </label>
+            <input type="number" id="monthlyExpenses" value="150000" min="0" step="5000" style="width:100%;">
           </div>
           <div class="ctrl-group">
-            <label class="ctrl-label">Repeat every (months)</label>
-            <input type="number" id="lumpsumFreq" value="6" min="1" max="120" step="1" style="width:100%;">
+            <label class="ctrl-label">Available Savings</label>
+            <div class="computed-field" id="savingsDisplay" style="margin-bottom:15px;">₹50,000</div>
           </div>
           <hr class="divider">
           <div class="ctrl-group">
-            <label class="ctrl-label">Floating interest rate</label>
+            <label class="ctrl-label">
+              Floating interest rate
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Current annual interest rate applied to your loan.</div></div>
+            </label>
             <div class="range-wrap">
               <input type="range" id="rateSlider" min="6" max="10" step="0.05" value="7.35">
               <span class="range-val" id="rateVal">7.35%</span>
@@ -486,6 +524,15 @@
     <!-- RIGHT: OUTPUT -->
     <main>
       <div class="metrics-grid" id="metricsGrid"></div>
+
+      <div class="panel" style="margin-bottom:20px; background:var(--bg3);">
+        <div class="panel-header">
+          <div class="panel-icon purple">💡</div>
+          <span class="panel-title">Optimization Report (Based on Savings)</span>
+        </div>
+        <div class="panel-body" id="optimizationReport"></div>
+      </div>
+
       <div class="savings-row" id="savingsRow"></div>
 
       <div class="chart-wrap">
@@ -543,13 +590,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
-const DISBURSED_1 = 0;
-const EMI         = 73606;
-
 const BADGE_CLASSES  = ['badge-gold', 'badge-purple', 'badge-green', 'badge-red'];
 const ROW_CLASSES    = ['row-t0',     'row-t1',       'row-t2',      'row-t3'   ];
 const TLEG_COLORS    = ['var(--gold)','var(--purple)','var(--green)','var(--red)'];
 const TRANCHE_LETTERS = 'ABCDEFGHIJ'.split('');
+
+let currentStrategy = 'monthly';
 
 // ── TRANCHE STATE ─────────────────────────────────────────────────────────────
 let tranches = [];
@@ -606,8 +652,18 @@ const fL = n => {
   return (n < 0 ? '-' : '') + '₹' + v + 'L';
 };
 
+// Calculate EMI using standard formula: EMI = P × r(1+r)^n / ((1+r)^n - 1)
+function calcEMI(principal, annualRate, loanMonths) {
+  if (principal <= 0 || loanMonths <= 0) return 0;
+  const monthlyRate = annualRate / 100 / 12;
+  if (monthlyRate === 0) return principal / loanMonths; // For 0% loans
+  const numerator = monthlyRate * Math.pow(1 + monthlyRate, loanMonths);
+  const denominator = Math.pow(1 + monthlyRate, loanMonths) - 1;
+  return (principal * numerator) / denominator;
+}
+
 // ── SCHEDULE ─────────────────────────────────────────────────────────────────
-function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid) {
+function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid, emi) {
   let bal = disbursedAmt - principalPaid;
   const mr = rate / 100 / 12;
   const rows = [];
@@ -629,7 +685,7 @@ function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbu
 
     const open     = bal;
     const interest = open * mr;
-    let principal  = EMI - interest;
+    let principal  = emi - interest;
     if (principal < 0) principal = 0;
     if (principal > bal) principal = bal;
 
@@ -639,12 +695,12 @@ function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbu
       if (lumpsum < 0) lumpsum = 0;
     }
 
-    totPaid += EMI + lumpsum;
+    totPaid += emi + lumpsum;
     totInt  += interest;
     bal = bal - principal - lumpsum;
     if (bal < 0) bal = 0;
 
-    rows.push({ m, open, tranche: trancheTotal, appliedIdx, interest, principal, lumpsum, closing: bal, totPaid });
+    rows.push({ m, open, tranche: trancheTotal, appliedIdx, interest, principal, lumpsum, closing: bal, totPaid, emi });
     if (bal <= 0) break;
   }
   return { rows, totalInterest: totInt, totalMonths: rows.length };
@@ -693,20 +749,37 @@ function updateChart(planRows, baseRows) {
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function render() {
   const rate          = parseFloat(document.getElementById('rateSlider').value);
-  const lumpsumAmt    = parseInt(document.getElementById('lumpsumAmt').value);
-  const startMonth    = parseInt(document.getElementById('startMonth').value);
-  const lumpsumFreq   = Math.max(1, parseInt(document.getElementById('lumpsumFreq').value) || 6);
+  const loanMonths    = parseInt(document.getElementById('loanPeriod').value) || 1;
   const sanctioned    = parseFloat(document.getElementById('sanctionedAmt').value) || 0;
   const disbursedAmt  = parseFloat(document.getElementById('disbursedSoFar').value) || 0;
   const principalPaid = parseFloat(document.getElementById('principalPaid').value) || 0;
   const interestPaid  = parseFloat(document.getElementById('interestPaid').value)  || 0;
   const outstanding   = disbursedAmt - principalPaid;
   const remaining     = sanctioned - disbursedAmt;
+  const emi           = calcEMI(disbursedAmt, rate, loanMonths);
+
+  const salary        = parseFloat(document.getElementById('monthlySalary').value) || 0;
+  const expenses      = parseFloat(document.getElementById('monthlyExpenses').value) || 0;
+  const savings       = Math.max(0, salary - expenses);
+  
+  if (document.getElementById('savingsDisplay')) {
+    document.getElementById('savingsDisplay').textContent = fi(savings);
+  }
+
+  let lumpsumAmt = 0, startMonth = 1, lumpsumFreq = 1;
+  if (currentStrategy === 'monthly') {
+    lumpsumAmt = savings; startMonth = 1; lumpsumFreq = 1;
+  } else if (currentStrategy === 'semi') {
+    lumpsumAmt = savings * 6; startMonth = 6; lumpsumFreq = 6;
+  } else if (currentStrategy === 'annual') {
+    lumpsumAmt = savings * 12; startMonth = 12; lumpsumFreq = 12;
+  }
 
   document.getElementById('rateVal').textContent            = rate.toFixed(2) + '%';
   document.getElementById('outstandingDisplay').textContent = fi(outstanding);
   document.getElementById('headerSanctioned').textContent   = sanctioned > 0 ? fi(sanctioned) : '—';
   document.getElementById('headerDisbursed').textContent    = disbursedAmt > 0 ? fi(disbursedAmt) : '—';
+  document.getElementById('headerEMI').textContent          = emi > 0 ? fi(emi) : '—';
   document.getElementById('trancheLabel').textContent       = `Split ${fL(remaining)} into tranches`;
 
   // tranche warning
@@ -728,12 +801,45 @@ function render() {
     }
   });
 
-  const plan = calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid);
-  const base = calcSchedule(rate, tranches, 0,          startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid);
+  const plan = calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid, emi);
+  const base = calcSchedule(rate, tranches, 0,          1,          1,           disbursedAmt, principalPaid, interestPaid, emi);
   const intSaved = base.totalInterest - plan.totalInterest;
   const mSaved   = base.totalMonths   - plan.totalMonths;
   const newYear  = new Date().getFullYear() + Math.ceil(plan.totalMonths / 12);
   const peakBal  = outstanding + tranches.reduce((s, t) => s + (t.month > 0 ? t.amt * 1e5 : 0), 0);
+
+  const reportEl = document.getElementById('optimizationReport');
+  if (reportEl) {
+    if (savings > 0) {
+      const optMonthly = calcSchedule(rate, tranches, savings, 1, 1, disbursedAmt, principalPaid, interestPaid, emi);
+      const optSemi    = calcSchedule(rate, tranches, savings * 6, 6, 6, disbursedAmt, principalPaid, interestPaid, emi);
+      const optAnnual  = calcSchedule(rate, tranches, savings * 12, 12, 12, disbursedAmt, principalPaid, interestPaid, emi);
+      
+      reportEl.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+          <div class="metric-card ${currentStrategy==='monthly'?'gold':'neutral'}" style="cursor:pointer; border-color:${currentStrategy==='monthly'?'var(--gold)':'var(--border)'}; transition:all 0.15s; position:relative;" onclick="setStrategy('monthly')">
+            <div style="position:absolute; top:12px; right:12px; background:var(--gold); color:var(--bg); font-size:9px; font-weight:bold; padding:2px 6px; border-radius:4px; letter-spacing:0.5px;">RECOMMENDED</div>
+            <div class="m-label">Pay Monthly (₹${(savings/1000).toFixed(1)}k/mo)</div>
+            <div class="m-value ${currentStrategy==='monthly'?'gold':'neutral'}">Saves ${fL(base.totalInterest - optMonthly.totalInterest)}</div>
+            <div class="m-sub">Total Interest: ${fL(optMonthly.totalInterest)}<br>Closes in ${optMonthly.totalMonths} months</div>
+          </div>
+          <div class="metric-card ${currentStrategy==='semi'?'purple':'neutral'}" style="cursor:pointer; border-color:${currentStrategy==='semi'?'var(--purple)':'var(--border)'}; transition:all 0.15s;" onclick="setStrategy('semi')">
+            <div class="m-label">Every 6 Mos (₹${(savings*6/100000).toFixed(2)}L)</div>
+            <div class="m-value ${currentStrategy==='semi'?'purple':'neutral'}">Saves ${fL(base.totalInterest - optSemi.totalInterest)}</div>
+            <div class="m-sub">Total Interest: ${fL(optSemi.totalInterest)}<br>Closes in ${optSemi.totalMonths} months</div>
+          </div>
+          <div class="metric-card ${currentStrategy==='annual'?'green':'neutral'}" style="cursor:pointer; border-color:${currentStrategy==='annual'?'var(--green)':'var(--border)'}; transition:all 0.15s;" onclick="setStrategy('annual')">
+            <div class="m-label">Yearly (₹${(savings*12/100000).toFixed(2)}L)</div>
+            <div class="m-value ${currentStrategy==='annual'?'green':'neutral'}">Saves ${fL(base.totalInterest - optAnnual.totalInterest)}</div>
+            <div class="m-sub">Total Interest: ${fL(optAnnual.totalInterest)}<br>Closes in ${optAnnual.totalMonths} months</div>
+          </div>
+        </div>
+        <p style="font-size:11px; color:var(--text3); margin-top:12px; font-family:'DM Mono',monospace;">* Recommendation: Paying extra principal as early as possible (Monthly) always yields the highest interest savings due to compounding.</p>
+      `;
+    } else {
+      reportEl.innerHTML = '<p style="font-size:12px; color:var(--text3); font-family:\'DM Mono\', monospace;">Enter your monthly salary and expenses to see a savings optimization report.</p>';
+    }
+  }
 
   // metrics
   document.getElementById('metricsGrid').innerHTML = `
@@ -805,7 +911,7 @@ function render() {
       <td>M${r.m}${tag}</td>
       <td>${fi(r.open)}</td>
       <td>${r.tranche > 0 ? fi(r.tranche) : '—'}</td>
-      <td>${fi(EMI)}</td>
+      <td>${fi(r.emi)}</td>
       <td>${fi(r.interest)}</td>
       <td>${fi(r.principal)}</td>
       <td>${r.lumpsum > 0 ? fi(r.lumpsum) : '—'}</td>
@@ -828,7 +934,7 @@ function exportCSV() {
       'M' + r.m,
       Math.round(r.open),
       Math.round(r.tranche),
-      EMI,
+      Math.round(r.emi),
       Math.round(r.interest),
       Math.round(r.principal),
       Math.round(r.lumpsum),
@@ -844,11 +950,19 @@ function exportCSV() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-['rateSlider','lumpsumAmt','startMonth','lumpsumFreq','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid'].forEach(id => {
+window.setStrategy = function(val) {
+  currentStrategy = val;
+  render();
+};
+
+['rateSlider','monthlySalary','monthlyExpenses','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid'].forEach(id => {
   const el = document.getElementById(id);
-  el.addEventListener('change', render);
-  if (id === 'rateSlider') el.addEventListener('input', render);
-  if (['sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid','lumpsumFreq'].includes(id)) el.addEventListener('input', render);
+  if (el) {
+    el.addEventListener('change', render);
+    if (id === 'rateSlider' || ['monthlySalary','monthlyExpenses','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid'].includes(id)) {
+      el.addEventListener('input', render);
+    }
+  }
 });
 
 renderTranches();
