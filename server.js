@@ -31,31 +31,35 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  console.warn('\n  ⚠  GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set — auth will fail\n');
-}
+const hasGoogleAuth = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET;
 
-passport.use(new GoogleStrategy(
-  {
-    clientID:     process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL:  process.env.CALLBACK_URL || `http://localhost:${PORT}/auth/google/callback`,
-  },
-  (_access, _refresh, profile, done) => {
-    done(null, {
-      id:    profile.id,
-      name:  profile.displayName,
-      email: profile.emails?.[0]?.value,
-      photo: profile.photos?.[0]?.value,
-    });
-  }
-));
+if (!hasGoogleAuth) {
+  console.warn('\n  ℹ  GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set — running in development mode (auth disabled)\n');
+} else {
+  passport.use(new GoogleStrategy(
+    {
+      clientID:     process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL:  process.env.CALLBACK_URL || `http://localhost:${PORT}/auth/google/callback`,
+    },
+    (_access, _refresh, profile, done) => {
+      done(null, {
+        id:    profile.id,
+        name:  profile.displayName,
+        email: profile.emails?.[0]?.value,
+        photo: profile.photos?.[0]?.value,
+      });
+    }
+  ));
+}
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
 // ── MIDDLEWARE ────────────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
+  // In development mode (no Google auth), skip auth check
+  if (!hasGoogleAuth) return next();
   if (req.isAuthenticated()) return next();
   res.redirect('/login');
 }
@@ -66,14 +70,18 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+if (hasGoogleAuth) {
+  app.get('/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
+}
 
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login?error=auth' }),
-  (_req, res) => res.redirect('/')
-);
+if (hasGoogleAuth) {
+  app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login?error=auth' }),
+    (_req, res) => res.redirect('/')
+  );
+}
 
 app.get('/logout', (req, res) => {
   req.logout(() => res.redirect('/login'));

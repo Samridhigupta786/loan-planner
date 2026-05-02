@@ -368,9 +368,9 @@
     </div>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <div class="loan-ref">
-        Sanctioned <span id="headerSanctioned">₹92,95,377</span> &nbsp;·&nbsp; EMI <span>₹73,606</span> &nbsp;·&nbsp; Rate <span>7.35% floating</span> &nbsp;·&nbsp; Maturity <span>2041</span>
+        Sanctioned <span id="headerSanctioned">—</span> &nbsp;·&nbsp; Disbursed <span id="headerDisbursed">—</span> &nbsp;·&nbsp; EMI <span>₹73,606</span>
       </div>
-      <div id="userInfo" style="display:flex; align-items:center; gap:8px;">
+      <div id="userInfo" style="display:flex; align-items:center; gap:8px; min-width:150px;">
         <img id="userPhoto" src="" alt="" width="28" height="28"
           style="border-radius:50%; border:1px solid rgba(255,255,255,0.13); display:none;">
         <span id="userName" style="font-family:'DM Mono',monospace; font-size:11px; color:#8888a0;"></span>
@@ -398,19 +398,23 @@
         <div class="panel-body">
           <div class="ctrl-group">
             <span class="ctrl-label">Sanctioned Amount (₹)</span>
-            <input type="number" id="sanctionedAmt" value="9295377" min="0" step="10000" style="width:100%">
+            <input type="number" id="sanctionedAmt" value="0" min="0" step="10000" style="width:100%">
           </div>
           <div class="ctrl-group">
             <span class="ctrl-label">Disbursed So Far (₹)</span>
-            <div class="computed-field">₹80,55,994</div>
+            <input type="number" id="disbursedSoFar" value="0" min="0" step="10000" style="width:100%">
+          </div>
+          <div class="ctrl-group">
+            <span class="ctrl-label">Loan Period (months)</span>
+            <input type="number" id="loanPeriod" value="0" min="0" step="1" style="width:100%">
           </div>
           <div class="ctrl-group">
             <span class="ctrl-label">Principal Recovered (₹)</span>
-            <input type="number" id="principalPaid" value="66881" min="0" step="1000" style="width:100%">
+            <input type="number" id="principalPaid" value="0" min="0" step="1000" style="width:100%">
           </div>
           <div class="ctrl-group">
             <span class="ctrl-label">Interest Paid (₹)</span>
-            <input type="number" id="interestPaid" value="155330" min="0" step="1000" style="width:100%">
+            <input type="number" id="interestPaid" value="0" min="0" step="1000" style="width:100%">
           </div>
           <div class="ctrl-group" style="margin-bottom:0;">
             <span class="ctrl-label">Outstanding Principal (₹)</span>
@@ -539,7 +543,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
-const DISBURSED_1 = 8055994;
+const DISBURSED_1 = 0;
 const EMI         = 73606;
 
 const BADGE_CLASSES  = ['badge-gold', 'badge-purple', 'badge-green', 'badge-red'];
@@ -548,10 +552,7 @@ const TLEG_COLORS    = ['var(--gold)','var(--purple)','var(--green)','var(--red)
 const TRANCHE_LETTERS = 'ABCDEFGHIJ'.split('');
 
 // ── TRANCHE STATE ─────────────────────────────────────────────────────────────
-let tranches = [
-  { amt: 6, month: 4 },
-  { amt: 6, month: 8 },
-];
+let tranches = [];
 
 function renderTranches() {
   const list = document.getElementById('trancheList');
@@ -582,12 +583,12 @@ function renderTranches() {
 }
 
 function updateTranche(i, key, val) {
-  tranches[i][key] = key === 'amt' ? (parseFloat(val) || 0) : (parseInt(val) || 1);
+  tranches[i][key] = key === 'amt' ? (parseFloat(val) || 0) : (parseInt(val) || 0);
   render();
 }
 
 function addTranche() {
-  tranches.push({ amt: 2, month: 12 });
+  tranches.push({ amt: 0, month: 0 });
   renderTranches();
   render();
 }
@@ -606,8 +607,8 @@ const fL = n => {
 };
 
 // ── SCHEDULE ─────────────────────────────────────────────────────────────────
-function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, principalPaid, interestPaid) {
-  let bal = DISBURSED_1 - principalPaid;
+function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid) {
+  let bal = disbursedAmt - principalPaid;
   const mr = rate / 100 / 12;
   const rows = [];
   let totInt  = interestPaid;
@@ -696,14 +697,16 @@ function render() {
   const startMonth    = parseInt(document.getElementById('startMonth').value);
   const lumpsumFreq   = Math.max(1, parseInt(document.getElementById('lumpsumFreq').value) || 6);
   const sanctioned    = parseFloat(document.getElementById('sanctionedAmt').value) || 0;
+  const disbursedAmt  = parseFloat(document.getElementById('disbursedSoFar').value) || 0;
   const principalPaid = parseFloat(document.getElementById('principalPaid').value) || 0;
   const interestPaid  = parseFloat(document.getElementById('interestPaid').value)  || 0;
-  const outstanding   = DISBURSED_1 - principalPaid;
-  const remaining     = sanctioned - DISBURSED_1;
+  const outstanding   = disbursedAmt - principalPaid;
+  const remaining     = sanctioned - disbursedAmt;
 
   document.getElementById('rateVal').textContent            = rate.toFixed(2) + '%';
   document.getElementById('outstandingDisplay').textContent = fi(outstanding);
-  document.getElementById('headerSanctioned').textContent   = fi(sanctioned);
+  document.getElementById('headerSanctioned').textContent   = sanctioned > 0 ? fi(sanctioned) : '—';
+  document.getElementById('headerDisbursed').textContent    = disbursedAmt > 0 ? fi(disbursedAmt) : '—';
   document.getElementById('trancheLabel').textContent       = `Split ${fL(remaining)} into tranches`;
 
   // tranche warning
@@ -725,8 +728,8 @@ function render() {
     }
   });
 
-  const plan = calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, principalPaid, interestPaid);
-  const base = calcSchedule(rate, tranches, 0,          startMonth, lumpsumFreq, principalPaid, interestPaid);
+  const plan = calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid);
+  const base = calcSchedule(rate, tranches, 0,          startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid);
   const intSaved = base.totalInterest - plan.totalInterest;
   const mSaved   = base.totalMonths   - plan.totalMonths;
   const newYear  = new Date().getFullYear() + Math.ceil(plan.totalMonths / 12);
@@ -841,11 +844,11 @@ function exportCSV() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-['rateSlider','lumpsumAmt','startMonth','lumpsumFreq','sanctionedAmt','principalPaid','interestPaid'].forEach(id => {
+['rateSlider','lumpsumAmt','startMonth','lumpsumFreq','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid'].forEach(id => {
   const el = document.getElementById(id);
   el.addEventListener('change', render);
   if (id === 'rateSlider') el.addEventListener('input', render);
-  if (['sanctionedAmt','principalPaid','interestPaid','lumpsumFreq'].includes(id)) el.addEventListener('input', render);
+  if (['sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid','lumpsumFreq'].includes(id)) el.addEventListener('input', render);
 });
 
 renderTranches();
