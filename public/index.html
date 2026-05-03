@@ -210,22 +210,39 @@
     width: 100%;
   }
 
-  input[type="number"], select {
+  input[type="number"],
+  input[type="date"],
+  input[type="month"],
+  select {
     background: var(--bg);
     border: 1px solid var(--border2);
     border-radius: 7px;
     color: var(--text);
     font-family: 'DM Mono', monospace;
     font-size: 13px;
-    padding: 7px 10px;
+    padding: 8px 10px;
     outline: none;
-    transition: border-color 0.15s;
+    transition: all 0.15s;
     width: 100%;
   }
-  input[type="number"]:focus, select:focus { border-color: var(--gold); }
-  input[type="number"] { width: 90px; }
+  
+  input[type="number"]:focus,
+  input[type="date"]:focus,
+  input[type="month"]:focus,
+  select:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px var(--gold-dim);
+  }
+
   select { cursor: pointer; }
   select option { background: var(--bg2); }
+  
+  ::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+    opacity: 0.6;
+  }
+  ::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
   .range-wrap { display: flex; align-items: center; gap: 12px; }
   .range-val { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--gold); min-width: 52px; text-align: right; }
@@ -350,6 +367,8 @@
   tbody tr.row-t3 td:first-child { color: var(--red);    }
   tbody tr.row-lump td { color: var(--green); background: var(--green-dim); }
   tbody tr.row-lump td:first-child { color: var(--green); }
+  tbody tr.row-missed td { color: #ff9500; background: rgba(255, 149, 0, 0.1); }
+  tbody tr.row-missed td:first-child { color: #ff9500; }
 
   .actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .btn {
@@ -381,6 +400,19 @@
     thead th { background: #f5f5f5; color: #333; }
     tbody td { color: #333; }
   }
+
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+  }
+  .modal-content {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); width: 100%; max-width: 400px;
+  }
+  .modal-content input[type="date"] {
+    background: var(--bg); border: 1px solid var(--border2); border-radius: 7px; color: var(--text); padding: 7px 10px; width: 100%; font-family: 'DM Mono', monospace; font-size: 13px; outline: none;
+  }
 </style>
 </head>
 <body>
@@ -388,13 +420,16 @@
   <header>
     <div class="header-left">
       <h1>Loan Repayment <span>Planner</span></h1>
-      <p>Minimize interest · Optimize prepayments · Plan disbursements</p>
+      <p>Minimize interest · Optimize prepayments</p>
     </div>
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <div class="loan-ref">
         Sanctioned <span id="headerSanctioned">—</span> &nbsp;·&nbsp; Disbursed <span id="headerDisbursed">—</span> &nbsp;·&nbsp; EMI <span id="headerEMI">—</span>
       </div>
       <div id="userInfo" style="display:flex; align-items:center; gap:8px; min-width:150px;">
+        <select id="savedPlansDropdown" style="display:none; font-family:'DM Mono',monospace; font-size:11px; padding:4px 8px; background:var(--bg3); color:var(--text2); border:1px solid var(--border); border-radius:6px;" onchange="loadPlan(this.value)">
+          <option value="">Load a saved plan...</option>
+        </select>
         <img id="userPhoto" src="" alt="" width="28" height="28"
           style="border-radius:50%; border:1px solid rgba(255,255,255,0.13); display:none;">
         <span id="userName" style="font-family:'DM Mono',monospace; font-size:11px; color:#8888a0;"></span>
@@ -433,6 +468,7 @@
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Amount released to you or the builder so far.</div></div>
             </label>
             <input type="number" id="disbursedSoFar" value="8000000" min="0" step="10000" style="width:100%">
+            <div class="warning" id="disburseWarning"></div>
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
@@ -440,6 +476,13 @@
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Total tenure of the loan in months (e.g., 20 years = 240 months).</div></div>
             </label>
             <input type="number" id="loanPeriod" value="240" min="0" step="1" style="width:100%">
+          </div>
+          <div class="ctrl-group">
+            <label class="ctrl-label">
+              Plan Start Date
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Date when your loan EMI repayment starts. Schedule will show actual months from this date.</div></div>
+            </label>
+            <input type="date" id="planStartDate" value="2026-05-03" style="width:100%">
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
@@ -478,6 +521,26 @@
         </div>
       </div>
 
+      <!-- Prepayment Overrides -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <div class="panel-icon purple">⏱️</div>
+          <span class="panel-title">Prepayment Overrides</span>
+        </div>
+        <div class="panel-body">
+          <div class="ctrl-group" style="margin-bottom:0;">
+            <p style="font-size:11px; color:var(--text3); margin-bottom:12px; font-family:'DM Mono',monospace; line-height:1.4;">
+              Use overrides to record actual prepayments made or to skip a planned payment. 
+              Enter the month number and the actual amount paid. 
+              Set amount to 0 to mark a month as "missed".
+            </p>
+            <span class="ctrl-label">Override specific months (Set to 0 if missed)</span>
+            <div id="overrideList"></div>
+            <button class="btn-add-tranche" onclick="addOverride()">+ Add Override</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Prepayment -->
       <div class="panel">
         <div class="panel-header">
@@ -500,7 +563,10 @@
             <input type="number" id="monthlyExpenses" value="150000" min="0" step="5000" style="width:100%;">
           </div>
           <div class="ctrl-group">
-            <label class="ctrl-label">Available Savings</label>
+            <label class="ctrl-label">
+              Available Savings
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">This amount represents your monthly surplus and will be used for loan prepayment calculations.</div></div>
+            </label>
             <div class="computed-field" id="savingsDisplay" style="margin-bottom:15px;">₹50,000</div>
           </div>
           <hr class="divider">
@@ -523,6 +589,8 @@
 
     <!-- RIGHT: OUTPUT -->
     <main>
+      <div id="currentStatusPanel"></div>
+      
       <div class="metrics-grid" id="metricsGrid"></div>
 
       <div class="panel" style="margin-bottom:20px; background:var(--bg3);">
@@ -549,7 +617,15 @@
       </div>
 
       <div class="actions">
-        <button class="btn primary" onclick="exportCSV()">
+        <button class="btn primary" id="btnSavePlan" onclick="savePlan()" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Plan
+        </button>
+        <button class="btn" id="btnDeletePlan" onclick="deletePlan()" style="display:none; border-color:var(--red); color:var(--red);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+          Delete
+        </button>
+        <button class="btn" onclick="exportCSV()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Export CSV
         </button>
@@ -585,6 +661,7 @@
       </div>
     </main>
   </div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -596,21 +673,83 @@ const TLEG_COLORS    = ['var(--gold)','var(--purple)','var(--green)','var(--red)
 const TRANCHE_LETTERS = 'ABCDEFGHIJ'.split('');
 
 let currentStrategy = 'monthly';
+let savedPlans = [];
+let currentPlanId = null;
+let hasUser = false;
+let prepaymentOverrides = [];
 
 // ── TRANCHE STATE ─────────────────────────────────────────────────────────────
 let tranches = [];
 
+function renderOverrides() {
+  const list = document.getElementById('overrideList');
+  const startDate = document.getElementById('planStartDate').value;
+  let html = '';
+  prepaymentOverrides.forEach((o, i) => {
+    const dateStr = o.month > 0 ? formatMonthDate(startDate, o.month - 1) : '—';
+    html += `
+      <div class="tranche-card">
+        <div class="tranche-head">
+          <span class="badge badge-purple" style="min-width: 80px; text-align: center;">${dateStr}</span>
+          <span style="font-weight: 600;">₹${(o.amount / 1000).toFixed(0)}k Override</span>
+          <button class="tranche-remove" onclick="removeOverride(${i})" title="Remove">×</button>
+        </div>
+        <div class="inline-ctrl" style="margin-bottom:8px;">
+          <label>Date (Month/Year)</label>
+          <input type="month" value="${monthNumberToYearMonth(startDate, o.month)}"
+            oninput="updateOverride(${i}, 'monthFromDate', this.value)">
+        </div>
+        <div class="inline-ctrl">
+          <label>New Amt (₹)</label>
+          <input type="number" value="${o.amount}" min="0" step="5000"
+            oninput="updateOverride(${i}, 'amount', this.value)">
+        </div>
+      </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function updateOverride(i, key, val) {
+  if (key === 'monthFromDate') {
+    // Convert YYYY-MM to month number
+    const startDate = document.getElementById('planStartDate').value;
+    prepaymentOverrides[i]['month'] = yearMonthToMonthNumber(startDate, val);
+  } else {
+    prepaymentOverrides[i][key] = parseFloat(val) || 0;
+  }
+  renderOverrides();
+  render();
+}
+
+function addOverride() {
+  // Default to adding an override for the next "month 1" or last override + 1
+  const nextMonth = prepaymentOverrides.length > 0 
+    ? Math.max(...prepaymentOverrides.map(o => o.month)) + 1 
+    : 1;
+  prepaymentOverrides.push({ month: nextMonth, amount: 0 });
+  renderOverrides();
+  render();
+}
+
+function removeOverride(i) {
+  prepaymentOverrides.splice(i, 1);
+  renderOverrides();
+  render();
+}
+
 function renderTranches() {
   const list = document.getElementById('trancheList');
+  const startDate = document.getElementById('planStartDate').value;
   let html = '';
   tranches.forEach((t, i) => {
     const badge = BADGE_CLASSES[i % BADGE_CLASSES.length];
     const letter = TRANCHE_LETTERS[i] || (i + 1);
+    const dateStr = t.month > 0 ? formatMonthDate(startDate, t.month - 1) : '—';
     html += `
       <div class="tranche-card">
         <div class="tranche-head">
-          <span class="badge ${badge}">T${letter}</span>
-          <span>₹${t.amt}L</span>
+          <span class="badge ${badge}" style="min-width: 30px; text-align: center;">T${letter}</span>
+          <span style="font-weight: 600;">₹${t.amt}L Disbursement</span>
           ${tranches.length > 1 ? `<button class="tranche-remove" onclick="removeTranche(${i})" title="Remove tranche">×</button>` : ''}
         </div>
         <div class="inline-ctrl" style="margin-bottom:8px;">
@@ -619,9 +758,9 @@ function renderTranches() {
             oninput="updateTranche(${i}, 'amt', this.value)">
         </div>
         <div class="inline-ctrl">
-          <label>Month</label>
-          <input type="number" value="${t.month}" min="1" max="480" step="1" style="width:70px;"
-            oninput="updateTranche(${i}, 'month', this.value)">
+          <label>Date (Month/Year)</label>
+          <input type="month" value="${monthNumberToYearMonth(startDate, t.month)}"
+            oninput="updateTranche(${i}, 'monthFromDate', this.value)">
         </div>
       </div>`;
   });
@@ -629,7 +768,14 @@ function renderTranches() {
 }
 
 function updateTranche(i, key, val) {
-  tranches[i][key] = key === 'amt' ? (parseFloat(val) || 0) : (parseInt(val) || 0);
+  if (key === 'monthFromDate') {
+    // Convert YYYY-MM to month number
+    const startDate = document.getElementById('planStartDate').value;
+    tranches[i]['month'] = yearMonthToMonthNumber(startDate, val);
+  } else {
+    tranches[i][key] = key === 'amt' ? (parseFloat(val) || 0) : (parseInt(val) || 0);
+  }
+  renderTranches();
   render();
 }
 
@@ -662,16 +808,52 @@ function calcEMI(principal, annualRate, loanMonths) {
   return (principal * numerator) / denominator;
 }
 
+// Format date to readable format (e.g., "May 2026")
+function formatMonthDate(startDate, monthOffset) {
+  const date = new Date(startDate);
+  date.setMonth(date.getMonth() + monthOffset);
+  return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+}
+
+// Convert month number to YYYY-MM format for date input
+function monthNumberToYearMonth(startDate, monthNum) {
+  if (!monthNum || monthNum <= 0) return '';
+  const date = new Date(startDate);
+  date.setMonth(date.getMonth() + monthNum - 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+// Convert YYYY-MM input to month number based on start date
+function yearMonthToMonthNumber(startDate, yearMonthStr) {
+  if (!yearMonthStr) return 0;
+  const [year, month] = yearMonthStr.split('-');
+  const selectedDate = new Date(year, month - 1, 1);
+  const startDateObj = new Date(startDate);
+  const diffMonths = (selectedDate.getFullYear() - startDateObj.getFullYear()) * 12 + 
+                     (selectedDate.getMonth() - startDateObj.getMonth());
+  return diffMonths + 1;
+}
+
 // ── SCHEDULE ─────────────────────────────────────────────────────────────────
-function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid, emi) {
+function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid, emi, startDate, overrides = [], loanMonths = 240) {
   let bal = disbursedAmt - principalPaid;
   const mr = rate / 100 / 12;
   const rows = [];
   let totInt  = interestPaid;
   let totPaid = principalPaid + interestPaid;
-
-  for (let m = 1; m <= 480; m++) {
+  let currentEmi = emi;
+  let pendingEmiIncrease = 0; // Track EMI increase to apply next month
+  
+  for (let m = 1; m <= loanMonths + 240; m++) {
     if (bal <= 0) break;
+
+    // Apply any pending EMI increase from previous month's tranche (applies from this month onwards)
+    if (pendingEmiIncrease > 0) {
+      currentEmi += pendingEmiIncrease;
+      pendingEmiIncrease = 0;
+    }
 
     let trancheTotal = 0;
     let appliedIdx   = -1;
@@ -682,25 +864,44 @@ function calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbu
       }
     }
     bal += trancheTotal;
+    
+    // If a tranche is added, MARK the EMI increase for next month (not this month)
+    if (trancheTotal > 0) {
+      const remainingMonths = Math.max(1, loanMonths - m + 1);
+      const additionalEmi = calcEMI(trancheTotal, rate, remainingMonths);
+      pendingEmiIncrease = additionalEmi; // Will be applied next month
+    }
 
     const open     = bal;
     const interest = open * mr;
-    let principal  = emi - interest;
+    let principal  = currentEmi - interest;
     if (principal < 0) principal = 0;
     if (principal > bal) principal = bal;
 
     let lumpsum = 0;
-    if (lumpsumAmt > 0 && m >= startMonth && (m - startMonth) % lumpsumFreq === 0) {
-      lumpsum = Math.min(lumpsumAmt, bal - principal);
-      if (lumpsum < 0) lumpsum = 0;
-    }
+    let lumpsumType = ''; 
 
-    totPaid += emi + lumpsum;
+    const currentMonthDate = new Date(startDate);
+    currentMonthDate.setMonth(currentMonthDate.getMonth() + m - 1);
+
+    // 1. Manual Overrides (Highest priority)
+    const manualOverride = overrides.find(o => o.month === m);
+    
+    if (manualOverride !== undefined) {
+      lumpsum = Math.min(manualOverride.amount, bal - principal);
+      lumpsumType = manualOverride.amount === 0 ? 'missed' : 'modified';
+    } else if (lumpsumAmt > 0 && m >= startMonth && (m - startMonth) % lumpsumFreq === 0) {
+      lumpsum = Math.min(lumpsumAmt, bal - principal);
+      lumpsumType = 'scheduled';
+    }
+    
+    totPaid += currentEmi + lumpsum;
     totInt  += interest;
     bal = bal - principal - lumpsum;
     if (bal < 0) bal = 0;
 
-    rows.push({ m, open, tranche: trancheTotal, appliedIdx, interest, principal, lumpsum, closing: bal, totPaid, emi });
+    const dateStr = formatMonthDate(startDate, m - 1);
+    rows.push({ m, dateStr, open, tranche: trancheTotal, appliedIdx, interest, principal, lumpsum, closing: bal, totPaid, emi: currentEmi, lumpsumType });
     if (bal <= 0) break;
   }
   return { rows, totalInterest: totInt, totalMonths: rows.length };
@@ -712,7 +913,7 @@ function updateChart(planRows, baseRows) {
   const step = Math.max(1, Math.floor(planRows.length / 60));
   const labels = [], planData = [], baseData = [];
   for (let i = 0; i < Math.max(planRows.length, baseRows.length); i += step) {
-    labels.push('M' + (i < planRows.length ? planRows[i].m : planRows[planRows.length - 1].m));
+    labels.push(i < planRows.length ? planRows[i].dateStr : (planRows[planRows.length - 1].dateStr || 'M' + planRows[planRows.length - 1].m));
     planData.push(i < planRows.length ? Math.round(planRows[i].closing / 1e5) / 10 : 0);
     baseData.push(i < baseRows.length  ? Math.round(baseRows[i].closing  / 1e5) / 10 : 0);
   }
@@ -756,7 +957,11 @@ function render() {
   const interestPaid  = parseFloat(document.getElementById('interestPaid').value)  || 0;
   const outstanding   = disbursedAmt - principalPaid;
   const remaining     = sanctioned - disbursedAmt;
-  const emi           = calcEMI(disbursedAmt, rate, loanMonths);
+  
+  // Calculate total principal including all future tranches
+  const totalTrancheAmt = tranches.reduce((sum, t) => sum + (t.amt * 1e5), 0);
+  const totalPrincipal = disbursedAmt + totalTrancheAmt;
+  const emi           = calcEMI(totalPrincipal, rate, loanMonths);
 
   const salary        = parseFloat(document.getElementById('monthlySalary').value) || 0;
   const expenses      = parseFloat(document.getElementById('monthlyExpenses').value) || 0;
@@ -782,6 +987,15 @@ function render() {
   document.getElementById('headerEMI').textContent          = emi > 0 ? fi(emi) : '—';
   document.getElementById('trancheLabel').textContent       = `Split ${fL(remaining)} into tranches`;
 
+  // Disbursed vs Sanctioned warning
+  const disWarn = document.getElementById('disburseWarning');
+  if (disbursedAmt > sanctioned) {
+    disWarn.style.display = 'block';
+    disWarn.textContent = `Error: Disbursed exceeds sanctioned amount.`;
+  } else {
+    disWarn.style.display = 'none';
+  }
+
   // tranche warning
   const totalT = tranches.reduce((s, t) => s + t.amt * 1e5, 0);
   const warn = document.getElementById('trancheWarning');
@@ -801,19 +1015,55 @@ function render() {
     }
   });
 
-  const plan = calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid, emi);
-  const base = calcSchedule(rate, tranches, 0,          1,          1,           disbursedAmt, principalPaid, interestPaid, emi);
+  // Re-render tranches and overrides to show dates based on current start date
+  renderTranches();
+  renderOverrides();
+
+  const plan = calcSchedule(rate, tranches, lumpsumAmt, startMonth, lumpsumFreq, disbursedAmt, principalPaid, interestPaid, emi, document.getElementById('planStartDate').value, prepaymentOverrides, loanMonths);
+  const base = calcSchedule(rate, tranches, 0,          1,          1,           disbursedAmt, principalPaid, interestPaid, emi, document.getElementById('planStartDate').value, prepaymentOverrides, loanMonths);
   const intSaved = base.totalInterest - plan.totalInterest;
   const mSaved   = base.totalMonths   - plan.totalMonths;
   const newYear  = new Date().getFullYear() + Math.ceil(plan.totalMonths / 12);
   const peakBal  = outstanding + tranches.reduce((s, t) => s + (t.month > 0 ? t.amt * 1e5 : 0), 0);
 
+  // Projected Status Today
+  const today = new Date();
+  const startDateStr = document.getElementById('planStartDate').value;
+  const startDateObj = new Date(startDateStr);
+  const monthDiff = (today.getFullYear() - startDateObj.getFullYear()) * 12 + (today.getMonth() - startDateObj.getMonth());
+  
+  const statusPanel = document.getElementById('currentStatusPanel');
+  if (monthDiff >= 0 && monthDiff < plan.rows.length) {
+    const currentRow = plan.rows[monthDiff];
+    statusPanel.innerHTML = `
+      <div class="panel" style="margin-bottom:20px; border-color:var(--purple); background:var(--purple-dim);">
+        <div class="panel-header" style="border-bottom-color:rgba(155,143,255,0.15);">
+          <div class="panel-icon purple">📍</div>
+          <span class="panel-title" style="color:var(--purple);">Projected Status (as of ${currentRow.dateStr})</span>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px;">
+            <div>
+              <div class="m-label">Projected Balance</div>
+              <div class="m-value purple">${fi(currentRow.closing)}</div>
+            </div>
+            <div>
+              <div class="m-label">Total Paid Since Plan Start</div>
+              <div class="m-value neutral">${fi(currentRow.totPaid - (principalPaid + interestPaid))}</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    statusPanel.innerHTML = '';
+  }
+
   const reportEl = document.getElementById('optimizationReport');
   if (reportEl) {
     if (savings > 0) {
-      const optMonthly = calcSchedule(rate, tranches, savings, 1, 1, disbursedAmt, principalPaid, interestPaid, emi);
-      const optSemi    = calcSchedule(rate, tranches, savings * 6, 6, 6, disbursedAmt, principalPaid, interestPaid, emi);
-      const optAnnual  = calcSchedule(rate, tranches, savings * 12, 12, 12, disbursedAmt, principalPaid, interestPaid, emi);
+      const optMonthly = calcSchedule(rate, tranches, savings, 1, 1, disbursedAmt, principalPaid, interestPaid, emi, document.getElementById('planStartDate').value, prepaymentOverrides, loanMonths);
+      const optSemi    = calcSchedule(rate, tranches, savings * 6, 6, 6, disbursedAmt, principalPaid, interestPaid, emi, document.getElementById('planStartDate').value, prepaymentOverrides, loanMonths);
+      const optAnnual  = calcSchedule(rate, tranches, savings * 12, 12, 12, disbursedAmt, principalPaid, interestPaid, emi, document.getElementById('planStartDate').value, prepaymentOverrides, loanMonths);
       
       reportEl.innerHTML = `
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
@@ -891,7 +1141,8 @@ function render() {
     const letter = TRANCHE_LETTERS[i] || (i + 1);
     legendHtml += `<span><span class="tleg-dot" style="background:${TLEG_COLORS[i % TLEG_COLORS.length]};"></span>Tranche ${letter}</span>`;
   });
-  legendHtml += `<span><span class="tleg-dot" style="background:var(--green);"></span>Lumpsum</span>`;
+  legendHtml += `<span><span class="tleg-dot" style="background:var(--green);"></span>Scheduled Lumpsum</span>`;
+  legendHtml += `<span><span class="tleg-dot" style="background:#ff9500;"></span>Missed/Override</span>`;
   document.getElementById('tableLegend').innerHTML = legendHtml;
 
   updateChart(plan.rows, base.rows);
@@ -904,11 +1155,11 @@ function render() {
       cls = ROW_CLASSES[r.appliedIdx % ROW_CLASSES.length];
       tag = ' ▲' + (TRANCHE_LETTERS[r.appliedIdx] || (r.appliedIdx + 1));
     } else if (r.lumpsum > 0) {
-      cls = 'row-lump';
+      cls = (r.lumpsumType === 'missed' || r.lumpsumType === 'modified') ? 'row-missed' : 'row-lump';
       tag = ' ★';
     }
     html += `<tr class="${cls}">
-      <td>M${r.m}${tag}</td>
+      <td>${r.dateStr}${tag}</td>
       <td>${fi(r.open)}</td>
       <td>${r.tranche > 0 ? fi(r.tranche) : '—'}</td>
       <td>${fi(r.emi)}</td>
@@ -927,11 +1178,12 @@ function render() {
 // ── CSV EXPORT ────────────────────────────────────────────────────────────────
 function exportCSV() {
   const rows = window._scheduleData || [];
+  const startMonthStr = document.getElementById('planStartMonth').value;
   const headers = ['Month','Opening','Tranche Added','EMI','Interest','Principal','Lumpsum','Closing','Cumulative Paid'];
   const lines = [headers.join(',')];
   for (const r of rows) {
     lines.push([
-      'M' + r.m,
+      formatMonth(startMonthStr, r.m),
       Math.round(r.open),
       Math.round(r.tranche),
       Math.round(r.emi),
@@ -949,17 +1201,154 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ── FIRESTORE INTEGRATION ─────────────────────────────────────────────────────
+async function fetchPlans() {
+  try {
+    const res = await fetch('/api/plans');
+    if (res.ok) {
+      savedPlans = await res.json();
+      renderSavedPlansDropdown();
+    }
+  } catch (e) { console.error('Error fetching plans', e); }
+}
+
+function renderSavedPlansDropdown() {
+  const dropdown = document.getElementById('savedPlansDropdown');
+  if (savedPlans.length === 0) {
+    dropdown.style.display = 'none';
+    return;
+  }
+  dropdown.style.display = 'block';
+  dropdown.innerHTML = '<option value="">Load a saved plan...</option>' + 
+    savedPlans.map(p => `<option value="${p.id}">${p.planName || 'Untitled Plan'}</option>`).join('');
+  if (currentPlanId) dropdown.value = currentPlanId;
+}
+
+function loadPlan(id) {
+  const delBtn = document.getElementById('btnDeletePlan');
+  if (!id) { 
+    currentPlanId = null; 
+    if (delBtn) delBtn.style.display = 'none';
+    return; 
+  }
+  const plan = savedPlans.find(p => p.id === id);
+  if (!plan) return;
+  
+  currentPlanId = plan.id;
+  document.getElementById('sanctionedAmt').value = plan.sanctionedAmt || 0;
+  document.getElementById('disbursedSoFar').value = plan.disbursedSoFar || 0;
+  document.getElementById('loanPeriod').value = plan.loanPeriod || 240;
+  document.getElementById('principalPaid').value = plan.principalPaid || 0;
+  document.getElementById('interestPaid').value = plan.interestPaid || 0;
+  document.getElementById('monthlySalary').value = plan.monthlySalary || 0;
+  document.getElementById('monthlyExpenses').value = plan.monthlyExpenses || 0;
+  document.getElementById('planStartDate').value = plan.planStartDate || new Date().toISOString().split('T')[0];
+  document.getElementById('rateSlider').value = plan.interestRate || 7.35;
+  
+  currentStrategy = plan.strategy || 'monthly';
+  tranches = plan.tranches || [];
+  prepaymentOverrides = plan.prepaymentOverrides || [];
+
+
+  renderOverrides();
+  renderTranches();
+  render();
+}
+
+async function savePlan() {
+  if (!hasUser) return;
+  
+  const planData = {
+    sanctionedAmt: parseFloat(document.getElementById('sanctionedAmt').value) || 0,
+    disbursedSoFar: parseFloat(document.getElementById('disbursedSoFar').value) || 0,
+    loanPeriod: parseInt(document.getElementById('loanPeriod').value) || 240,
+    principalPaid: parseFloat(document.getElementById('principalPaid').value) || 0,
+    interestPaid: parseFloat(document.getElementById('interestPaid').value) || 0,
+    monthlySalary: parseFloat(document.getElementById('monthlySalary').value) || 0,
+    monthlyExpenses: parseFloat(document.getElementById('monthlyExpenses').value) || 0,
+    planStartDate: document.getElementById('planStartDate').value || new Date().toISOString().split('T')[0],
+    interestRate: parseFloat(document.getElementById('rateSlider').value) || 7.35,
+    strategy: currentStrategy,
+    tranches: tranches,
+    prepaymentOverrides: prepaymentOverrides
+  };
+
+  if (planData.disbursedSoFar > planData.sanctionedAmt) {
+    alert("Disbursed amount cannot be greater than sanctioned amount.");
+    return;
+  }
+
+  const btn = document.getElementById('btnSavePlan');
+  const originalHtml = btn.innerHTML;
+  try {
+    btn.textContent = 'Saving...';
+    
+    if (currentPlanId) {
+      const res = await fetch(`/api/plans/${currentPlanId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData)
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update plan');
+      }
+    } else {
+      const name = prompt("Enter a name for this plan:", "My Home Loan");
+      if (!name) { btn.innerHTML = originalHtml; return; }
+      planData.planName = name;
+      
+      const res = await fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData)
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save plan');
+      }
+      const newPlan = await res.json();
+      currentPlanId = newPlan.id;
+    }
+    
+    await fetchPlans();
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Saved!';
+    setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+    
+  } catch (e) {
+    console.error('Error saving plan', e);
+    alert(e.message);
+    btn.innerHTML = originalHtml;
+  }
+}
+
+async function deletePlan() {
+  if (!currentPlanId) return;
+  if (!confirm("Are you sure you want to delete this plan? This action cannot be undone.")) return;
+
+  try {
+    const res = await fetch(`/api/plans/${currentPlanId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete plan');
+    
+    await fetchPlans();
+    loadPlan(""); // Reset UI to the default empty state
+  } catch (e) {
+    console.error(e);
+    alert('Error deleting plan. Please try again.');
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 window.setStrategy = function(val) {
   currentStrategy = val;
   render();
 };
 
-['rateSlider','monthlySalary','monthlyExpenses','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid'].forEach(id => {
+['rateSlider','monthlySalary','monthlyExpenses','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid','planStartDate'].forEach(id => {
   const el = document.getElementById(id);
   if (el) {
     el.addEventListener('change', render);
-    if (id === 'rateSlider' || ['monthlySalary','monthlyExpenses','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid'].includes(id)) {
+    if (id === 'rateSlider' || ['monthlySalary','monthlyExpenses','sanctionedAmt','disbursedSoFar','loanPeriod','principalPaid','interestPaid','planStartDate'].includes(id)) {
       el.addEventListener('input', render);
     }
   }
@@ -968,13 +1357,22 @@ window.setStrategy = function(val) {
 renderTranches();
 render();
 
-fetch('/api/me').then(r => r.json()).then(u => {
+fetch('/api/me').then(r => {
+  if (r.ok) return r.json();
+  throw new Error('Not logged in');
+}).then(u => {
+  hasUser = true;
+  const saveBtn = document.getElementById('btnSavePlan');
+  if (saveBtn) saveBtn.style.display = 'flex';
+
   if (u.name) document.getElementById('userName').textContent = u.name;
   if (u.photo) {
     const img = document.getElementById('userPhoto');
     img.src = u.photo;
     img.style.display = 'block';
   }
+  
+  fetchPlans();
 }).catch(() => {});
 </script>
 </body>
