@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 3000;
 
 // Initialize Firestore using the Project ID from your environment variables
 const firestore = new Firestore({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT || 'loan-planner-495016',
-  databaseId: process.env.FIRESTORE_DATABASE_ID || 'loan-planner'
+  projectId: process.env.GOOGLE_CLOUD_PROJECT,
+  databaseId: process.env.FIRESTORE_DATABASE_ID
 });
 
 // Cloud Run (and any reverse proxy) forwards requests via HTTP internally.
