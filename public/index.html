@@ -98,6 +98,10 @@
   .panel-icon.green { background: var(--green-dim); }
   .panel-icon.purple { background: var(--purple-dim); }
   .panel-title { font-size: 13px; font-weight: 600; letter-spacing: 0.03em; color: var(--text); }
+  
+  /* Analysis panels hidden until calculation */
+  main { opacity: 0; pointer-events: none; height: 0; overflow: hidden; transition: opacity 0.3s ease; }
+  main.visible { opacity: 1; pointer-events: auto; height: auto; }
   .panel-body { padding: 20px; }
 
   .ctrl-group { margin-bottom: 20px; }
@@ -427,8 +431,8 @@
         Sanctioned <span id="headerSanctioned">—</span> &nbsp;·&nbsp; Disbursed <span id="headerDisbursed">—</span> &nbsp;·&nbsp; EMI <span id="headerEMI">—</span>
       </div>
       <div id="userInfo" style="display:flex; align-items:center; gap:8px; min-width:150px;">
-        <select id="savedPlansDropdown" style="display:none; font-family:'DM Mono',monospace; font-size:11px; padding:4px 8px; background:var(--bg3); color:var(--text2); border:1px solid var(--border); border-radius:6px;" onchange="loadPlan(this.value)">
-          <option value="">Load a saved plan...</option>
+        <select id="savedPlansDropdown" style="display:none; font-family:'Syne',sans-serif; font-size:12px; padding:8px 12px; background:var(--gold); color:var(--bg); border:1px solid var(--gold); border-radius:6px; cursor:pointer; font-weight:600;" onchange="loadPlan(this.value)">
+          <option value="" style="background:var(--bg); color:var(--text);">📋 Load a saved plan...</option>
         </select>
         <img id="userPhoto" src="" alt="" width="28" height="28"
           style="border-radius:50%; border:1px solid rgba(255,255,255,0.13); display:none;">
@@ -460,14 +464,14 @@
               Sanctioned Amount (₹)
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Total loan amount approved by the bank.</div></div>
             </label>
-            <input type="number" id="sanctionedAmt" value="10000000" min="0" step="10000" style="width:100%">
+            <input type="number" id="sanctionedAmt" value="" min="0" step="10000" style="width:100%" placeholder="Enter amount (e.g., 1,00,00,000)">
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
               Disbursed So Far (₹)
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Amount released to you or the builder so far.</div></div>
             </label>
-            <input type="number" id="disbursedSoFar" value="8000000" min="0" step="10000" style="width:100%">
+            <input type="number" id="disbursedSoFar" value="" min="0" step="10000" style="width:100%" placeholder="Enter amount (e.g., 80,00,000)">
             <div class="warning" id="disburseWarning"></div>
           </div>
           <div class="ctrl-group">
@@ -475,14 +479,14 @@
               Loan Period (months)
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Total tenure of the loan in months (e.g., 20 years = 240 months).</div></div>
             </label>
-            <input type="number" id="loanPeriod" value="240" min="0" step="1" style="width:100%">
+            <input type="number" id="loanPeriod" value="" min="0" step="1" style="width:100%" placeholder="Enter months (e.g., 240)">
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
               Plan Start Date
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Date when your loan EMI repayment starts. Schedule will show actual months from this date.</div></div>
             </label>
-            <input type="date" id="planStartDate" value="2026-05-03" style="width:100%">
+            <input type="date" id="planStartDate" value="" style="width:100%">
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
@@ -499,7 +503,10 @@
             <input type="number" id="interestPaid" value="0" min="0" step="1000" style="width:100%">
           </div>
           <div class="ctrl-group" style="margin-bottom:0;">
-            <span class="ctrl-label">Outstanding Principal (₹)</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="ctrl-label">Outstanding Principal (₹)</span>
+              <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">The remaining loan balance that still needs to be repaid.</div></div>
+            </div>
             <div class="computed-field" id="outstandingDisplay">—</div>
           </div>
         </div>
@@ -510,10 +517,10 @@
         <div class="panel-header">
           <div class="panel-icon gold">💸</div>
           <span class="panel-title">Remaining Disbursement</span>
+          <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Schedule the release of remaining loan money in parts (tranches). This is useful when the full loan amount isn't needed upfront.</div></div>
         </div>
         <div class="panel-body">
           <div class="ctrl-group" style="margin-bottom:0;">
-            <span class="ctrl-label" id="trancheLabel">Split ₹12,39,383 into tranches</span>
             <div id="trancheList"></div>
             <button class="btn-add-tranche" onclick="addTranche()">+ Add Tranche</button>
             <div class="warning" id="trancheWarning"></div>
@@ -534,7 +541,6 @@
               Enter the month number and the actual amount paid. 
               Set amount to 0 to mark a month as "missed".
             </p>
-            <span class="ctrl-label">Override specific months (Set to 0 if missed)</span>
             <div id="overrideList"></div>
             <button class="btn-add-tranche" onclick="addOverride()">+ Add Override</button>
           </div>
@@ -553,21 +559,21 @@
               Monthly Salary (₹)
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Your total monthly take-home income.</div></div>
             </label>
-            <input type="number" id="monthlySalary" value="200000" min="0" step="5000" style="width:100%;">
+            <input type="number" id="monthlySalary" value="" min="0" step="5000" style="width:100%;" placeholder="Enter amount">
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
               Monthly Expenses (₹)
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">Your total monthly living expenses and other EMIs.</div></div>
             </label>
-            <input type="number" id="monthlyExpenses" value="150000" min="0" step="5000" style="width:100%;">
+            <input type="number" id="monthlyExpenses" value="" min="0" step="5000" style="width:100%;" placeholder="Enter amount">
           </div>
           <div class="ctrl-group">
             <label class="ctrl-label">
               Available Savings
               <div class="info-wrap"><span class="info-icon">i</span><div class="info-tooltip">This amount represents your monthly surplus and will be used for loan prepayment calculations.</div></div>
             </label>
-            <div class="computed-field" id="savingsDisplay" style="margin-bottom:15px;">₹50,000</div>
+            <div class="computed-field" id="savingsDisplay" style="margin-bottom:15px;">—</div>
           </div>
           <hr class="divider">
           <div class="ctrl-group">
@@ -583,6 +589,9 @@
               <span>6.00%</span><span>8.00%</span><span>10.00%</span>
             </div>
           </div>
+          <button class="btn primary" id="btnCalculate" onclick="calculatePlan()" style="width:100%; margin-top:20px; background:var(--gold); color:var(--bg); border:none; cursor:pointer; font-weight:600;">
+            Calculate Plan
+          </button>
         </div>
       </div>
     </aside>
@@ -1219,8 +1228,8 @@ function renderSavedPlansDropdown() {
     return;
   }
   dropdown.style.display = 'block';
-  dropdown.innerHTML = '<option value="">Load a saved plan...</option>' + 
-    savedPlans.map(p => `<option value="${p.id}">${p.planName || 'Untitled Plan'}</option>`).join('');
+  dropdown.innerHTML = '<option value="" style="background:var(--bg); color:var(--text);">📋 Load a saved plan...</option>' + 
+    savedPlans.map(p => `<option value="${p.id}" style="background:var(--bg); color:var(--text);">✓ ${p.planName || 'Untitled Plan'}</option>`).join('');
   if (currentPlanId) dropdown.value = currentPlanId;
 }
 
@@ -1252,6 +1261,10 @@ function loadPlan(id) {
 
   renderOverrides();
   renderTranches();
+  
+  // Show analysis panel when loading a plan
+  document.querySelector('main').classList.add('visible');
+  
   render();
 }
 
@@ -1339,6 +1352,42 @@ async function deletePlan() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+function calculatePlan() {
+  // Validate required fields
+  const sanctioned = parseFloat(document.getElementById('sanctionedAmt').value);
+  const disbursed = parseFloat(document.getElementById('disbursedSoFar').value);
+  const period = parseInt(document.getElementById('loanPeriod').value);
+  const startDate = document.getElementById('planStartDate').value;
+  
+  if (!sanctioned || sanctioned <= 0) {
+    alert('Please enter Sanctioned Amount');
+    return;
+  }
+  if (!disbursed || disbursed <= 0) {
+    alert('Please enter Disbursed Amount');
+    return;
+  }
+  if (!period || period <= 0) {
+    alert('Please enter Loan Period (months)');
+    return;
+  }
+  if (!startDate) {
+    alert('Please select Plan Start Date');
+    return;
+  }
+  if (disbursed > sanctioned) {
+    alert('Disbursed Amount cannot exceed Sanctioned Amount');
+    return;
+  }
+  
+  // Show analysis panel
+  const mainPanel = document.querySelector('main');
+  mainPanel.classList.add('visible');
+  
+  // Trigger render
+  render();
+}
+
 window.setStrategy = function(val) {
   currentStrategy = val;
   render();
@@ -1355,7 +1404,7 @@ window.setStrategy = function(val) {
 });
 
 renderTranches();
-render();
+// Don't call render() automatically - wait for user to click Calculate
 
 fetch('/api/me').then(r => {
   if (r.ok) return r.json();
