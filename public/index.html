@@ -994,7 +994,6 @@ function render() {
   document.getElementById('headerSanctioned').textContent   = sanctioned > 0 ? fi(sanctioned) : '—';
   document.getElementById('headerDisbursed').textContent    = disbursedAmt > 0 ? fi(disbursedAmt) : '—';
   document.getElementById('headerEMI').textContent          = emi > 0 ? fi(emi) : '—';
-  document.getElementById('trancheLabel').textContent       = `Split ${fL(remaining)} into tranches`;
 
   // Disbursed vs Sanctioned warning
   const disWarn = document.getElementById('disburseWarning');
