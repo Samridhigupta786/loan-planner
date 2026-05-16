@@ -431,8 +431,8 @@
         Sanctioned <span id="headerSanctioned">—</span> &nbsp;·&nbsp; Disbursed <span id="headerDisbursed">—</span> &nbsp;·&nbsp; EMI <span id="headerEMI">—</span>
       </div>
       <div id="userInfo" style="display:flex; align-items:center; gap:8px; min-width:150px;">
-        <select id="savedPlansDropdown" style="display:none; font-family:'Syne',sans-serif; font-size:12px; padding:8px 12px; background:var(--gold); color:var(--bg); border:1px solid var(--gold); border-radius:6px; cursor:pointer; font-weight:600;" onchange="loadPlan(this.value)">
-          <option value="" style="background:var(--bg); color:var(--text);">📋 Load a saved plan...</option>
+        <select id="savedPlansDropdown" style="display:none; font-family:'Syne',sans-serif; font-size:12px; padding:8px 12px; background:var(--gold); color:var(--bg); border:1px solid var(--gold); border-radius:6px; cursor:pointer; font-weight:600;" onchange="if(this.value === 'new') createNewPlan(); else if(this.value) loadPlan(this.value);">
+          <option value="new">➕ Create a new plan</option>
         </select>
         <img id="userPhoto" src="" alt="" width="28" height="28"
           style="border-radius:50%; border:1px solid rgba(255,255,255,0.13); display:none;">
@@ -1222,14 +1222,45 @@ async function fetchPlans() {
 
 function renderSavedPlansDropdown() {
   const dropdown = document.getElementById('savedPlansDropdown');
-  if (savedPlans.length === 0) {
-    dropdown.style.display = 'none';
-    return;
-  }
   dropdown.style.display = 'block';
-  dropdown.innerHTML = '<option value="" style="background:var(--bg); color:var(--text);">📋 Load a saved plan...</option>' + 
+  dropdown.innerHTML = '<option value="new" style="background:var(--gold); color:var(--bg); font-weight:bold;">➕ Create a new plan</option>' +
+    (savedPlans.length > 0 ? '<option disabled style="background:var(--bg); color:var(--text3);">━━━━━ Saved Plans ━━━━━</option>' : '') +
     savedPlans.map(p => `<option value="${p.id}" style="background:var(--bg); color:var(--text);">✓ ${p.planName || 'Untitled Plan'}</option>`).join('');
-  if (currentPlanId) dropdown.value = currentPlanId;
+  // Keep current value or default to 'new'
+  dropdown.value = currentPlanId || 'new';
+}
+
+function createNewPlan() {
+  // Clear all form fields
+  document.getElementById('sanctionedAmt').value = '';
+  document.getElementById('disbursedSoFar').value = '';
+  document.getElementById('loanPeriod').value = '';
+  document.getElementById('principalPaid').value = '';
+  document.getElementById('interestPaid').value = '';
+  document.getElementById('monthlySalary').value = '';
+  document.getElementById('monthlyExpenses').value = '';
+  document.getElementById('planStartDate').value = '';
+  document.getElementById('rateSlider').value = 7.35;
+  
+  // Reset state
+  currentPlanId = null;
+  currentStrategy = 'monthly';
+  tranches = [];
+  prepaymentOverrides = [];
+  
+  // Clear UI elements
+  document.getElementById('savingsDisplay').textContent = '—';
+  document.getElementById('outstandingDisplay').textContent = '—';
+  document.getElementById('rateVal').textContent = '7.35%';
+  
+  // Hide analysis panel and regenerate input displays
+  document.querySelector('main').classList.remove('visible');
+  renderTranches();
+  renderOverrides();
+  document.getElementById('btnDeletePlan').style.display = 'none';
+  
+  // Set dropdown to 'new'
+  document.getElementById('savedPlansDropdown').value = 'new';
 }
 
 function loadPlan(id) {
@@ -1263,6 +1294,9 @@ function loadPlan(id) {
   
   // Show analysis panel when loading a plan
   document.querySelector('main').classList.add('visible');
+  
+  // Set dropdown to this plan's ID
+  document.getElementById('savedPlansDropdown').value = id;
   
   render();
 }
